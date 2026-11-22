@@ -2325,13 +2325,32 @@
             const isHostedHttp = window.location.protocol === 'https:' || window.location.protocol === 'http:';
             bgMusic.volume = 0.65;
 
-            if (isHostedHttp && window.location.hostname.endsWith('github.io')) {
-                bgMusic.src = 'music.m4a';
-                bgMusic.addEventListener('error', () => {
-                    if (bgMusic.src !== EMBEDDED_BGM) {
-                        bgMusic.src = EMBEDDED_BGM;
-                    }
-                }, { once: true });
+            // On any hosted web server (GitHub Pages / custom domain), try full external audio files first
+            const externalCandidates = ['./music.m4a', './Music.m4a', './music.mp3'];
+            let candidateIdx = 0;
+            let usingFullAudio = false;
+
+            function loadNextAudioSource() {
+                if (isHostedHttp && candidateIdx < externalCandidates.length) {
+                    const nextUrl = externalCandidates[candidateIdx++];
+                    usingFullAudio = true;
+                    bgMusic.src = nextUrl;
+                    bgMusic.load();
+                } else {
+                    usingFullAudio = false;
+                    bgMusic.src = EMBEDDED_BGM;
+                    bgMusic.load();
+                }
+            }
+
+            bgMusic.addEventListener('error', () => {
+                if (usingFullAudio) {
+                    loadNextAudioSource();
+                }
+            });
+
+            if (isHostedHttp) {
+                loadNextAudioSource();
             } else {
                 bgMusic.src = EMBEDDED_BGM;
             }
@@ -2342,7 +2361,7 @@
             function updateMusicUI(playing) {
                 musicDock.classList.toggle('playing', playing);
                 musicPlayIcon.innerHTML = playing ? pauseSvg : playSvg;
-                musicStateText.textContent = playing ? 'Đang phát nhạc ♪' : 'Đang tạm dừng';
+                musicStateText.textContent = playing ? (usingFullAudio ? 'Đang phát full bài ♪' : 'Đang phát nhạc ♪') : 'Đang tạm dừng';
                 heroPlayBtn.textContent = playing ? '⏸ Tạm dừng nhạc' : '♪ Bật nhạc nền';
             }
 
